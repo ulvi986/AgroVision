@@ -1,10 +1,5 @@
-langchain==0.2.10
-langchain-community==0.2.9
-langchain-core==0.2.22
-langchain-openai==0.1.17
-langchain-text-splitters==0.2.2
-openai==1.36.0
+flask==3.0.3
 python-dotenv==1.0.1
-fastapi==0.111.1
-langserve==0.2.2
-sse_starlette==2.1.2
+langchain-core==0.3.28
+langchain-google-genai==2.0.7
+gunicorn==22.0.0
