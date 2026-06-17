@@ -1,0 +1,67 @@
+{
+  "users": [
+    {
+      "user_id": "USR-1001",
+      "name": "John Smith",
+      "saved_areas": [
+        {
+          "area_id": "FIELD-01",
+          "area_name": "North Wheat Field",
+          "coordinates": [
+            [40.45, 49.85],
+            [40.46, 49.85],
+            [40.46, 49.86],
+            [40.45, 49.86]
+          ],
+          "current_crop": "Winter Wheat",
+          "baseline_metrics": {
+            "average_ndvi": 0.68,
+            "average_ndwi": -0.12
+          }
+        }
+      ]
+    },
+    {
+      "user_id": "USR-1002",
+      "name": "Sarah Johnson",
+      "saved_areas": [
+        {
+          "area_id": "FIELD-02",
+          "area_name": "South Corn Field",
+          "coordinates": [
+            [40.50, 49.90],
+            [40.51, 49.90],
+            [40.51, 49.91],
+            [40.50, 49.91]
+          ],
+          "current_crop": "Corn",
+          "baseline_metrics": {
+            "average_ndvi": 0.72,
+            "average_ndwi": -0.08
+          }
+        }
+      ]
+    },
+    {
+      "user_id": "USR-1003",
+      "name": "Michael Brown",
+      "saved_areas": [
+        {
+          "area_id": "FIELD-03",
+          "area_name": "East Rice Farm",
+          "coordinates": [
+            [40.60, 49.70],
+            [40.61, 49.70],
+            [40.61, 49.71],
+            [40.60, 49.71]
+          ],
+          "current_crop": "Rice",
+          "baseline_metrics": {
+            "average_ndvi": 0.81,
+            "average_ndwi": 0.15
+          }
+        }
+      ]
+    }
+  ]
+}

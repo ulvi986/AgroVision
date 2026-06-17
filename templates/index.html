@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgroVision Portal</title>
+
+  <style>
+    :root {
+      --green: #2f7d46;
+      --green-dark: #1f5f34;
+      --green-light: #e9f5ed;
+      --bg: #f6f8f5;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --card: #ffffff;
+      --border: #dce5dc;
+      --user: #2f7d46;
+      --assistant: #f1f5f1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f6f8f5, #edf5ef);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 32px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1180px;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
+    }
+
+    .sidebar,
+    .chat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(31, 95, 52, 0.08);
+    }
+
+    .sidebar {
+      padding: 28px;
+      height: fit-content;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--green), #82b366);
+      display: grid;
+      place-items: center;
+      color: white;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    h1 {
+      font-size: 22px;
+      color: var(--green-dark);
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--green-dark);
+      margin-bottom: 8px;
+    }
+
+    select {
+      width: 100%;
+      padding: 13px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 14px;
+      outline: none;
+    }
+
+    select:focus {
+      border-color: var(--green);
+    }
+
+    .parcel-info {
+      margin-top: 22px;
+      padding: 18px;
+      border-radius: 18px;
+      background: var(--green-light);
+      border: 1px solid #cfe3d3;
+    }
+
+    .parcel-info p {
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #334155;
+    }
+
+    .parcel-info strong {
+      color: var(--green-dark);
+    }
+
+    .chat-card {
+      display: flex;
+      flex-direction: column;
+      height: 82vh;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 24px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chat-header h2 {
+      font-size: 22px;
+      color: var(--green-dark);
+    }
+
+    .status {
+      font-size: 13px;
+      color: var(--green);
+      background: var(--green-light);
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    .messages {
+      flex: 1;
+      padding: 28px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      scroll-behavior: smooth;
+    }
+
+    .message {
+      max-width: 75%;
+      padding: 15px 17px;
+      border-radius: 18px;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--user);
+      color: white;
+      border-bottom-right-radius: 6px;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      background: var(--assistant);
+      color: var(--text);
+      border-bottom-left-radius: 6px;
+    }
+
+    .meta {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      opacity: 0.7;
+      margin-bottom: 5px;
+    }
+
+    .composer {
+      border-top: 1px solid var(--border);
+      padding: 20px 24px;
+      background: #fbfdfb;
+    }
+
+    .upload-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border: 1px dashed #a6c8ac;
+      border-radius: 16px;
+      background: #f5fbf6;
+    }
+
+    .upload-box input {
+      display: none;
+    }
+
+    .upload-label {
+      cursor: pointer;
+      color: var(--green-dark);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .file-name {
+      font-size: 13px;
+      color: var(--muted);
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .clear-btn {
+      border: none;
+      background: transparent;
+      color: #b91c1c;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    textarea {
+      flex: 1;
+      resize: none;
+      min-height: 54px;
+      max-height: 140px;
+      padding: 15px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      font-size: 15px;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--green);
+    }
+
+    button.send {
+      width: 120px;
+      border: none;
+      border-radius: 16px;
+      background: var(--green);
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button.send:hover {
+      background: var(--green-dark);
+      transform: translateY(-1px);
+    }
+
+    .typing {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .typing span {
+      width: 7px;
+      height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: blink 1.4s infinite;
+    }
+
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes blink {
+      0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+      40% { opacity: 1; transform: translateY(-4px); }
+    }
+
+    @media (max-width: 850px) {
+      body {
+        padding: 16px;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .chat-card {
+        height: 75vh;
+      }
+
+      .message {
+        max-width: 90%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">Ag</div>
+        <div>
+          <h1>AgroVision</h1>
+          <p class="subtitle">Field intelligence assistant</p>
+        </div>
+      </div>
+
+      <label for="parcelSelect">Active Tracking Area</label>
+      <select id="parcelSelect"></select>
+
+      <div class="parcel-info" id="parcelInfo"></div>
+    </aside>
+
+    <section class="chat-card">
+      <div class="chat-header">
+        <div>
+          <h2>Agronomy Assistant</h2>
+          <p class="subtitle">Ask about crop health, NDVI, irrigation, disease risk, or satellite imagery.</p>
+        </div>
+        <div class="status">Online</div>
+      </div>
+
+      <div class="messages" id="messages">
+        <div class="message assistant">
+          <span class="meta">Assistant</span>
+          Welcome. Select a parcel, upload imagery if needed, and ask your agronomy question.
+        </div>
+      </div>
+
+      <form class="composer" id="chatForm">
+        <div class="upload-box">
+          <label class="upload-label" for="fileInput">+ Attach field image</label>
+          <span class="file-name" id="fileName">No file selected</span>
+          <button type="button" class="clear-btn" id="clearFile">Clear</button>
+          <input type="file" id="fileInput" accept="image/*,.tif,.tiff,.csv,.pdf" />
+        </div>
+
+        <div class="input-row">
+          <textarea id="messageInput" placeholder="Type your message..." required></textarea>
+          <button class="send" type="submit">Send</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const parcels = [
+      {
+        area_id: "FIELD-01",
+        name: "North Sector Wheat Field",
+        crop: "Winter Wheat",
+        ndvi: 0.68,
+        ndwi: -0.12
+      },
+      {
+        area_id: "FIELD-02",
+        name: "South Corn Parcel",
+        crop: "Corn",
+        ndvi: 0.74,
+        ndwi: 0.08
+      },
+      {
+        area_id: "FIELD-03",
+        name: "East Tomato Greenhouse",
+        crop: "Tomato",
+        ndvi: 0.81,
+        ndwi: 0.16
+      }
+    ];
+
+    const parcelSelect = document.getElementById("parcelSelect");
+    const parcelInfo = document.getElementById("parcelInfo");
+    const messages = document.getElementById("messages");
+    const chatForm = document.getElementById("chatForm");
+    const messageInput = document.getElementById("messageInput");
+    const fileInput = document.getElementById("fileInput");
+    const fileName = document.getElementById("fileName");
+    const clearFile = document.getElementById("clearFile");
+
+    let selectedFile = null;
+
+    parcels.forEach(parcel => {
+      const option = document.createElement("option");
+      option.value = parcel.area_id;
+      option.textContent = `${parcel.name} — ${parcel.crop}`;
+      parcelSelect.appendChild(option);
+    });
+
+    function getActiveParcel() {
+      return parcels.find(parcel => parcel.area_id === parcelSelect.value);
+    }
+
+    function renderParcelInfo() {
+      const parcel = getActiveParcel();
+
+      parcelInfo.innerHTML = `
+        <p><strong>Area ID:</strong> ${parcel.area_id}</p>
+        <p><strong>Parcel:</strong> ${parcel.name}</p>
+        <p><strong>Crop:</strong> ${parcel.crop}</p>
+        <p><strong>Average NDVI:</strong> ${parcel.ndvi}</p>
+        <p><strong>Average NDWI:</strong> ${parcel.ndwi}</p>
+      `;
+    }
+
+    function addMessage(role, text) {
+      const bubble = document.createElement("div");
+      bubble.className = `message ${role}`;
+      bubble.innerHTML = `
+        <span class="meta">${role === "user" ? "User" : "Assistant"}</span>
+        ${text}
+      `;
+      messages.appendChild(bubble);
+      messages.scrollTop = messages.scrollHeight;
+      return bubble;
+    }
+
+    function showTyping() {
+      return addMessage("assistant", `
+        <div class="typing">
+          <span></span><span></span><span></span>
+        </div>
+      `);
+    }
+
+    parcelSelect.addEventListener("change", renderParcelInfo);
+
+    fileInput.addEventListener("change", () => {
+      selectedFile = fileInput.files[0] || null;
+      fileName.textContent = selectedFile ? selectedFile.name : "No file selected";
+    });
+
+    clearFile.addEventListener("click", () => {
+      selectedFile = null;
+      fileInput.value = "";
+      fileName.textContent = "No file selected";
+    });
+
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const message = messageInput.value.trim();
+      if (!message) return;
+
+      const activeParcel = getActiveParcel();
+
+      addMessage(
+        "user",
+        `${message}
+        <br><br>
+        <small>Bound context: ${activeParcel.area_id}</small>
+        ${selectedFile ? `<br><small>Attached: ${selectedFile.name}</small>` : ""}`
+      );
+
+      messageInput.value = "";
+
+      const typingBubble = showTyping();
+
+      const formData = new FormData();
+      formData.append("message", message);
+      formData.append("area_id", activeParcel.area_id);
+      formData.append("parcel_context", JSON.stringify(activeParcel));
+
+      if (selectedFile) {
+        formData.append("file", selectedFile);
+      }
+
+      /*
+        Backend endpoint example:
+        POST /api/chat
+
+        Replace mock response below with:
+
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await response.json();
+      */
+
+        try {
+            const response = await fetch("/chat", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+
+        typingBubble.remove();
+        addMessage("assistant", data.response);
+
+      } catch (error) {
+        typingBubble.remove();
+        addMessage("assistant", "Server error oldu. Flask işləyir yoxla.");
+        console.error(error);
+      }
+    });
+
+    renderParcelInfo();
+  </script>
+</body>
+</html>
