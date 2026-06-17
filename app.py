@@ -221,12 +221,15 @@ def chat():
             Use this spatial context to answer questions about this user's fields, parcels,
             area_id, current crop, coordinates, NDVI, and NDWI.
             """
+        # Gemini does not accept a SystemMessage inside the conversation
+        # messages list (only the leading system instruction from the prompt
+        # template). Merge the spatial context into the human message instead.
+        human_message = HumanMessage(
+            content=f"{context_message_with_json}\n\nUser question: {message}"
+        )
         for r in with_history.stream(
                     {
-                        "messages": [
-                            SystemMessage(content=context_message_with_json),
-                            HumanMessage(content=message)
-                                     ]
+                        "messages": [human_message]
                     },
                     config=config,
             ):
@@ -244,7 +247,7 @@ def chat():
 
 
     return jsonify({
-        "response": f"{r.content}"
+        "response": response_text
     })
 
 if __name__ == "__main__":
