@@ -648,18 +648,41 @@ def chat():
             ]
         )
 
-        # Analyze the image STATELESSLY: pass an empty history so no prior
-        # conversation can contaminate the analysis. The image was already
-        # checked by the guardrail above, so we call the agriculture agent
-        # directly and skip the (redundant) text-based classification router.
+        # Keep image turns in the per-session history so the user can ask
+        # follow-up questions about the same image. History is isolated per
+        # session (a fresh session_id per page load), so this does NOT mix
+        # different users' or different chats' context. We skip the redundant
+        # text-based classification router because the image already passed the
+        # vision guardrail above, and feed the session's existing history in.
+        session_history = get_history(session_id)
+
         result = agriculture_chain.invoke(
             {
                 "messages": [human_message],
-                "history": [],
+                "history": session_history.messages,
                 "persona_instruction": persona_instruction,
             }
         )
         response_text = result.content
+
+        # Persist a LIGHTWEIGHT version of this turn: the image plus the user's
+        # question only, without the long analysis instructions. This way
+        # follow-ups keep the image context while the history stays clean and
+        # the big prompt is not repeated on every later turn.
+        history_human = HumanMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": message if message else "Please analyze this uploaded field image.",
+                },
+                {
+                    "type": "image_url",
+                    "image_url": f"data:{mime_type};base64,{image_base64}",
+                },
+            ]
+        )
+        session_history.add_message(history_human)
+        session_history.add_message(result)
 
     elif message and area_id:
         area_info = next(
