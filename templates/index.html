@@ -187,6 +187,35 @@
       border-bottom-left-radius: 6px;
     }
 
+    .message ul {
+      margin: 6px 0;
+      padding-left: 20px;
+    }
+
+    .message li {
+      margin: 2px 0;
+    }
+
+    .message code {
+      background: rgba(0, 0, 0, 0.08);
+      padding: 1px 5px;
+      border-radius: 5px;
+      font-size: 13px;
+    }
+
+    .message pre {
+      background: rgba(0, 0, 0, 0.08);
+      padding: 10px 12px;
+      border-radius: 10px;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+
+    .message pre code {
+      background: none;
+      padding: 0;
+    }
+
     .meta {
       display: block;
       font-size: 11px;
@@ -331,7 +360,14 @@
         </div>
       </div>
 
-      <label for="parcelSelect">Active Tracking Area</label>
+      <label for="personaSelect">Cavab rejimi</label>
+      <select id="personaSelect">
+        <option value="default">Adi</option>
+        <option value="agronomist">Professional aqronom</option>
+        <option value="farmer">Adi kəndli</option>
+      </select>
+
+      <label for="parcelSelect" style="margin-top: 22px;">Active Tracking Area</label>
       <select id="parcelSelect"></select>
 
       <div class="parcel-info" id="parcelInfo"></div>
@@ -362,7 +398,7 @@
         </div>
 
         <div class="input-row">
-          <textarea id="messageInput" placeholder="Type your message..." required></textarea>
+          <textarea id="messageInput" placeholder="Type your message..."></textarea>
           <button class="send" type="submit">Send</button>
         </div>
       </form>
@@ -395,6 +431,7 @@
     ];
 
     const parcelSelect = document.getElementById("parcelSelect");
+    const personaSelect = document.getElementById("personaSelect");
     const parcelInfo = document.getElementById("parcelInfo");
     const messages = document.getElementById("messages");
     const chatForm = document.getElementById("chatForm");
@@ -405,6 +442,11 @@
 
     let selectedFile = null;
 
+    const noneOption = document.createElement("option");
+    noneOption.value = "";
+    noneOption.textContent = "No tracking area (optional)";
+    parcelSelect.appendChild(noneOption);
+
     parcels.forEach(parcel => {
       const option = document.createElement("option");
       option.value = parcel.area_id;
@@ -412,12 +454,23 @@
       parcelSelect.appendChild(option);
     });
 
+    // Default to no selection so picking a field is not mandatory
+    parcelSelect.value = "";
+
     function getActiveParcel() {
-      return parcels.find(parcel => parcel.area_id === parcelSelect.value);
+      return parcels.find(parcel => parcel.area_id === parcelSelect.value) || null;
     }
 
     function renderParcelInfo() {
       const parcel = getActiveParcel();
+
+      if (!parcel) {
+        parcelInfo.innerHTML = `
+          <p>No tracking area selected.</p>
+          <p class="subtitle">You can chat without choosing a field, or pick one above for parcel-specific context.</p>
+        `;
+        return;
+      }
 
       parcelInfo.innerHTML = `
         <p><strong>Area ID:</strong> ${parcel.area_id}</p>
@@ -426,6 +479,48 @@
         <p><strong>Average NDVI:</strong> ${parcel.ndvi}</p>
         <p><strong>Average NDWI:</strong> ${parcel.ndwi}</p>
       `;
+    }
+
+    function formatMarkdown(text) {
+      // Convert Gemini's Markdown into safe HTML so it doesn't show raw ** ** etc.
+      let html = String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      const codeBlocks = [];
+      // Fenced code blocks ```...```
+      html = html.replace(/```([\s\S]*?)```/g, (m, code) => {
+        codeBlocks.push(`<pre><code>${code.replace(/^\n+|\n+$/g, "")}</code></pre>`);
+        return `@@CB${codeBlocks.length - 1}@@`;
+      });
+
+      html = html
+        // Headings (#, ##, ###) at line start
+        .replace(/^#{1,6}\s+(.*)$/gm, "<strong>$1</strong>")
+        // Bold: **text** or __text__
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/__([^_]+)__/g, "<strong>$1</strong>")
+        // Italic: *text* or _text_
+        .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+        .replace(/(^|[^_])_([^_\n]+)_/g, "$1<em>$2</em>")
+        // Inline code: `code`
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        // Bullet list items (-, *, •) at line start
+        .replace(/^\s*[-*•]\s+(.*)$/gm, "<li>$1</li>");
+
+      // Wrap consecutive <li> in <ul>
+      html = html.replace(/(?:<li>.*?<\/li>\s*)+/g, (m) => `<ul>${m}</ul>`);
+
+      // Newlines -> <br> (but not around block elements)
+      html = html.replace(/\n/g, "<br>");
+      html = html.replace(/<br>\s*(<\/?(?:ul|li|pre)>)/g, "$1");
+      html = html.replace(/(<\/?(?:ul|li|pre)>)\s*<br>/g, "$1");
+
+      // Restore code blocks
+      html = html.replace(/@@CB(\d+)@@/g, (m, i) => codeBlocks[Number(i)]);
+
+      return html;
     }
 
     function addMessage(role, text) {
@@ -465,16 +560,17 @@
       e.preventDefault();
 
       const message = messageInput.value.trim();
-      if (!message) return;
+      // Allow sending an image on its own, without any text message.
+      if (!message && !selectedFile) return;
 
       const activeParcel = getActiveParcel();
 
+      const attached = selectedFile
+        ? `<small>📎 Attached: ${selectedFile.name}</small>`
+        : "";
       addMessage(
         "user",
-        `${message}
-        <br><br>
-        <small>Bound context: ${activeParcel.area_id}</small>
-        ${selectedFile ? `<br><small>Attached: ${selectedFile.name}</small>` : ""}`
+        [message, attached].filter(Boolean).join("<br><br>")
       );
 
       messageInput.value = "";
@@ -483,8 +579,9 @@
 
       const formData = new FormData();
       formData.append("message", message);
-      formData.append("area_id", activeParcel.area_id);
-      formData.append("parcel_context", JSON.stringify(activeParcel));
+      formData.append("area_id", activeParcel ? activeParcel.area_id : "");
+      formData.append("parcel_context", activeParcel ? JSON.stringify(activeParcel) : "");
+      formData.append("persona", personaSelect.value);
 
       if (selectedFile) {
         formData.append("file", selectedFile);
@@ -513,7 +610,7 @@
         const data = await response.json();
 
         typingBubble.remove();
-        addMessage("assistant", data.response);
+        addMessage("assistant", formatMarkdown(data.response));
 
       } catch (error) {
         typingBubble.remove();
