@@ -442,6 +442,13 @@
 
     let selectedFile = null;
 
+    // A fresh session id is generated on every page load, so reloading the page
+    // starts a brand-new conversation with its own isolated history on the
+    // backend (no context bleeding between separate chats).
+    const sessionId = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
     const noneOption = document.createElement("option");
     noneOption.value = "";
     noneOption.textContent = "No tracking area (optional)";
@@ -582,6 +589,7 @@
       formData.append("area_id", activeParcel ? activeParcel.area_id : "");
       formData.append("parcel_context", activeParcel ? JSON.stringify(activeParcel) : "");
       formData.append("persona", personaSelect.value);
+      formData.append("session_id", sessionId);
 
       if (selectedFile) {
         formData.append("file", selectedFile);
