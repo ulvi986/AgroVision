@@ -410,6 +410,56 @@ Respond as a professional agronomic consultant preparing a technical field repor
 # endregion
 
 
+# region image classification prompt
+# Looks at the actual VISUAL CONTENT of an uploaded image and decides whether it
+# is agriculture related. The text-based classification router can't do this for
+# images (it would only see the analysis instructions), so off-topic photos are
+# rejected here before the agriculture agent ever analyzes them.
+IMAGE_CLASSIFICATION_PROMPT = """
+Look at the attached image and decide ONLY from its visual content whether it is
+related to agriculture, GIS, remote sensing, or a closely related domain.
+
+Treat as AGRICULTURE_RELATED: crops, plants, leaves, fruits, vegetables, trees,
+soil, farmland, fields, greenhouses, gardens, livestock, irrigation systems,
+fertilizers, pests or plant diseases, agricultural machinery, and GIS / remote
+sensing / satellite or drone imagery of land, as well as vegetation index maps
+such as NDVI or NDWI.
+
+Treat everything else as NOT_AGRICULTURE_RELATED (for example: people, animals
+that are not farm livestock, buildings, vehicles, electronics, documents,
+screenshots, memes, food dishes, or random objects).
+
+Respond with EXACTLY one label and nothing else:
+- AGRICULTURE_RELATED
+- NOT_AGRICULTURE_RELATED
+""".strip()
+
+NOT_AGRICULTURE_RESPONSE = (
+    "I am an AI specialized exclusively in agriculture, GIS, and related fields, "
+    "so I cannot answer this question."
+)
+
+
+def is_image_agriculture_related(mime_type: str, image_base64: str) -> bool:
+    """Use the vision model to classify whether an image is agriculture related."""
+    classification_message = HumanMessage(
+        content=[
+            {"type": "text", "text": IMAGE_CLASSIFICATION_PROMPT},
+            {
+                "type": "image_url",
+                "image_url": f"data:{mime_type};base64,{image_base64}",
+            },
+        ]
+    )
+    result = model.invoke([classification_message])
+    label = result.content.strip().upper()
+    # Check the negative label first since it contains the positive one as a substring.
+    if "NOT_AGRICULTURE_RELATED" in label:
+        return False
+    return "AGRICULTURE_RELATED" in label
+# endregion
+
+
 
 
 def get_history(session_id : str) -> BaseChatMessageHistory:
@@ -512,6 +562,12 @@ def chat():
         print("Uploaded file:", file)
 
         mime_type, image_base64 = image_to_base64(file)
+
+        # Guardrail: reject images whose visual content is not agriculture
+        # related before running the (expensive) analysis agent.
+        if not is_image_agriculture_related(mime_type, image_base64):
+            print("Image classified as NOT_AGRICULTURE_RELATED")
+            return jsonify({"response": NOT_AGRICULTURE_RESPONSE})
 
         # Always attach the structured image-analysis instruction. If the user
         # also typed a message, include it so the analysis stays focused on
