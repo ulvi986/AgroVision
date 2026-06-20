@@ -51,9 +51,18 @@ AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
 AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "appdQPElA6mOgh8EJ")
 AIRTABLE_TABLE_NAME = os.getenv("AIRTABLE_TABLE_NAME", "CRM")
 
+# Column names in the Airtable feedback table. Kept in one place so a rename in
+# Airtable only needs a one-line change here (or an env override).
+AIRTABLE_RATING_FIELD = os.getenv("AIRTABLE_RATING_FIELD", "rey bolmesi")
+AIRTABLE_REVIEW_FIELD = os.getenv("AIRTABLE_REVIEW_FIELD", "Review")
+AIRTABLE_STATUS_FIELD = os.getenv("AIRTABLE_STATUS_FIELD", "Status")
+# Every new piece of feedback starts as "not reviewed yet".
+AIRTABLE_DEFAULT_STATUS = os.getenv("AIRTABLE_DEFAULT_STATUS", "baxilmadi")
 
-def save_feedback_to_airtable(name: str, review: str) -> dict:
-    """Create one record in the Airtable feedback table (name + Review)."""
+
+def save_feedback_to_airtable(rating: str, review: str,
+                              status: str = AIRTABLE_DEFAULT_STATUS) -> dict:
+    """Create one feedback record in Airtable (rating + Review + Status)."""
     if not AIRTABLE_API_KEY:
         raise RuntimeError("AIRTABLE_API_KEY is not set in the environment.")
 
@@ -62,7 +71,20 @@ def save_feedback_to_airtable(name: str, review: str) -> dict:
         f"{AIRTABLE_BASE_ID}/{urllib.parse.quote(AIRTABLE_TABLE_NAME)}"
     )
     payload = json.dumps(
-        {"records": [{"fields": {"name": name, "Review": review}}]}
+        {
+            # typecast lets Airtable accept the Status value even if the option
+            # casing differs slightly, instead of rejecting the whole request.
+            "typecast": True,
+            "records": [
+                {
+                    "fields": {
+                        AIRTABLE_RATING_FIELD: rating,
+                        AIRTABLE_REVIEW_FIELD: review,
+                        AIRTABLE_STATUS_FIELD: status,
+                    }
+                }
+            ],
+        }
     ).encode("utf-8")
 
     req = urllib.request.Request(
