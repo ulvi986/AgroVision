@@ -14,6 +14,9 @@ from langchain_core.messages import AIMessage, SystemMessage
 import json
 import base64
 import mimetypes
+import os
+import urllib.request
+import urllib.parse
 app = Flask(__name__)
 
 #region Load the database
@@ -33,6 +36,42 @@ model = ChatGoogleGenerativeAI(
 
 # region storing
 store = {}
+# endregion
+
+
+# region Airtable feedback integration
+# Credentials come from the environment (never hard-code the API key). Set
+# AIRTABLE_API_KEY (and optionally AIRTABLE_BASE_ID / AIRTABLE_TABLE_NAME) in
+# your .env locally and in the host's variables when deploying.
+AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "appdQPElA6mOgh8EJ")
+AIRTABLE_TABLE_NAME = os.getenv("AIRTABLE_TABLE_NAME", "CRM")
+
+
+def save_feedback_to_airtable(name: str, review: str) -> dict:
+    """Create one record in the Airtable feedback table (name + Review)."""
+    if not AIRTABLE_API_KEY:
+        raise RuntimeError("AIRTABLE_API_KEY is not set in the environment.")
+
+    url = (
+        "https://api.airtable.com/v0/"
+        f"{AIRTABLE_BASE_ID}/{urllib.parse.quote(AIRTABLE_TABLE_NAME)}"
+    )
+    payload = json.dumps(
+        {"records": [{"fields": {"name": name, "Review": review}}]}
+    ).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+            "Content-Type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 # endregion
 
 # region system prompt for classification agent
@@ -730,6 +769,33 @@ def chat():
     return jsonify({
         "response": response_text
     })
+
+
+@app.route("/feedback", methods=["POST"])
+def feedback():
+    # The frontend asks the user "how was this answer?" after a few replies.
+    # rating  -> stored in the "name" column (e.g. "👍 Good" / "👎 Bad")
+    # comment -> stored in the "Review" column (free-text feedback)
+    rating = (request.form.get("rating") or "").strip()
+    comment = (request.form.get("comment") or "").strip()
+    session_id = request.form.get("session_id") or "default"
+
+    print("Feedback:", {"rating": rating, "comment": comment, "session": session_id})
+
+    if not rating and not comment:
+        return jsonify({"ok": False, "error": "Empty feedback"}), 400
+
+    name = rating or "Feedback"
+    review = comment or "(no comment)"
+
+    try:
+        result = save_feedback_to_airtable(name, review)
+        record_id = (result.get("records") or [{}])[0].get("id")
+        return jsonify({"ok": True, "record_id": record_id})
+    except Exception as e:
+        print("Airtable feedback error:", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True)

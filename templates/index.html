@@ -324,6 +324,70 @@
     .typing span:nth-child(2) { animation-delay: 0.2s; }
     .typing span:nth-child(3) { animation-delay: 0.4s; }
 
+    .feedback-card {
+      max-width: 85%;
+      border: 1px solid #cfe3d3;
+      background: var(--green-light);
+    }
+
+    .feedback-card .fb-rating {
+      display: flex;
+      gap: 8px;
+      margin: 10px 0;
+    }
+
+    .feedback-card .fb-btn {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 12px;
+      padding: 7px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: 0.15s;
+    }
+
+    .feedback-card .fb-btn:hover { border-color: var(--green); }
+
+    .feedback-card .fb-btn.selected {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+    }
+
+    .feedback-card .fb-comment {
+      width: 100%;
+      min-height: 50px;
+      resize: vertical;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 8px;
+    }
+
+    .feedback-card .fb-comment:focus { border-color: var(--green); }
+
+    .feedback-card .fb-send {
+      border: none;
+      border-radius: 12px;
+      background: var(--green);
+      color: #fff;
+      font-weight: 700;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+
+    .feedback-card .fb-send:hover { background: var(--green-dark); }
+    .feedback-card .fb-send:disabled { opacity: 0.6; cursor: default; }
+
+    .feedback-card .fb-status {
+      font-size: 13px;
+      color: var(--green-dark);
+      margin-top: 8px;
+      min-height: 16px;
+    }
+
     @keyframes blink {
       0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
       40% { opacity: 1; transform: translateY(-4px); }
@@ -550,6 +614,82 @@
       `);
     }
 
+    // After this many assistant replies, ask the user for feedback and send it
+    // to Airtable (name = rating, Review = comment).
+    const FEEDBACK_EVERY = 3;
+    let assistantReplyCount = 0;
+    let feedbackActive = false;
+
+    function showFeedbackPrompt() {
+      if (feedbackActive) return;
+      feedbackActive = true;
+
+      const card = document.createElement("div");
+      card.className = "message assistant feedback-card";
+      card.innerHTML = `
+        <span class="meta">Feedback</span>
+        <div>Bu cavablar necə oldu? Rəyini bizimlə bölüş 🙏</div>
+        <div class="fb-rating">
+          <button type="button" class="fb-btn" data-rating="👍 Good">👍 Yaxşı</button>
+          <button type="button" class="fb-btn" data-rating="👎 Bad">👎 Pis</button>
+        </div>
+        <textarea class="fb-comment" placeholder="İstəsən şərh yaz (istəyə bağlı)..."></textarea>
+        <div><button type="button" class="fb-send">Göndər</button></div>
+        <div class="fb-status"></div>
+      `;
+      messages.appendChild(card);
+      messages.scrollTop = messages.scrollHeight;
+
+      let chosenRating = "";
+      const ratingBtns = card.querySelectorAll(".fb-btn");
+      ratingBtns.forEach((btn) =>
+        btn.addEventListener("click", () => {
+          chosenRating = btn.dataset.rating;
+          ratingBtns.forEach((b) => b.classList.remove("selected"));
+          btn.classList.add("selected");
+        })
+      );
+
+      const statusEl = card.querySelector(".fb-status");
+      const sendBtn = card.querySelector(".fb-send");
+
+      sendBtn.addEventListener("click", async () => {
+        const comment = card.querySelector(".fb-comment").value.trim();
+        if (!chosenRating && !comment) {
+          statusEl.textContent = "Zəhmət olmasa rəy seç və ya şərh yaz.";
+          return;
+        }
+
+        sendBtn.disabled = true;
+        statusEl.textContent = "Göndərilir...";
+
+        const fd = new FormData();
+        fd.append("rating", chosenRating);
+        fd.append("comment", comment);
+        fd.append("session_id", sessionId);
+
+        try {
+          const r = await fetch("/feedback", { method: "POST", body: fd });
+          const d = await r.json();
+          if (d.ok) {
+            statusEl.textContent = "Təşəkkürlər! Rəyin qeydə alındı ✅";
+            card.querySelector(".fb-rating").style.display = "none";
+            card.querySelector(".fb-comment").style.display = "none";
+            sendBtn.style.display = "none";
+          } else {
+            statusEl.textContent = "Xəta: " + (d.error || "göndərilə bilmədi");
+            sendBtn.disabled = false;
+          }
+        } catch (err) {
+          statusEl.textContent = "Server xətası, yenidən cəhd et.";
+          sendBtn.disabled = false;
+          console.error(err);
+        }
+
+        feedbackActive = false;
+      });
+    }
+
     parcelSelect.addEventListener("change", renderParcelInfo);
 
     fileInput.addEventListener("change", () => {
@@ -619,6 +759,12 @@
 
         typingBubble.remove();
         addMessage("assistant", formatMarkdown(data.response));
+
+        // Ask for feedback after every few assistant replies.
+        assistantReplyCount++;
+        if (assistantReplyCount % FEEDBACK_EVERY === 0) {
+          showFeedbackPrompt();
+        }
 
       } catch (error) {
         typingBubble.remove();
