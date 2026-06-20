@@ -32,6 +32,10 @@ load_dotenv()
 
 model = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
+    # Auto-retry transient failures (network/DNS blips, rate limits) so a
+    # single hiccup reaching the Gemini API doesn't fail the whole request.
+    max_retries=3,
+    timeout=60,
 )
 
 # region storing
@@ -632,6 +636,20 @@ def index():
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    # Wrap the handler so transient failures (e.g. network/DNS blips reaching
+    # the Gemini API: httpx.ConnectError / getaddrinfo failed) return a clean
+    # message to the UI instead of a raw 500 traceback.
+    try:
+        return _chat_impl()
+    except Exception as e:
+        print("Chat error:", repr(e))
+        return jsonify({
+            "response": "Bağlantı xətası oldu (şəbəkə/DNS problemi ola bilər). "
+                        "Zəhmət olmasa bir azdan yenidən cəhd et."
+        }), 200
+
+
+def _chat_impl():
     message = request.form.get("message")
     area_id = request.form.get("area_id")
     parcel_context = request.form.get("parcel_context")
