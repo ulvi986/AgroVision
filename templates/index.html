@@ -567,29 +567,10 @@
   </main>
 
   <script>
-    const parcels = [
-      {
-        area_id: "FIELD-01",
-        name: "North Sector Wheat Field",
-        crop: "Winter Wheat",
-        ndvi: 0.68,
-        ndwi: -0.12
-      },
-      {
-        area_id: "FIELD-02",
-        name: "South Corn Parcel",
-        crop: "Corn",
-        ndvi: 0.74,
-        ndwi: 0.08
-      },
-      {
-        area_id: "FIELD-03",
-        name: "East Tomato Greenhouse",
-        crop: "Tomato",
-        ndvi: 0.81,
-        ndwi: 0.16
-      }
-    ];
+    // Areas are no longer hard-coded here. They are loaded from the backend
+    // (/areas), which reads database.json — the single source of truth shared
+    // with the chat endpoint. Editing database.json updates this list too.
+    let parcels = [];
 
     const parcelSelect = document.getElementById("parcelSelect");
     const personaSelect = document.getElementById("personaSelect");
@@ -610,20 +591,39 @@
       ? crypto.randomUUID()
       : `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    const noneOption = document.createElement("option");
-    noneOption.value = "";
-    noneOption.textContent = "No tracking area (optional)";
-    parcelSelect.appendChild(noneOption);
+    // Build the dropdown from whatever areas the backend returned.
+    function populateParcelSelect() {
+      parcelSelect.innerHTML = "";
 
-    parcels.forEach(parcel => {
-      const option = document.createElement("option");
-      option.value = parcel.area_id;
-      option.textContent = `${parcel.name} — ${parcel.crop}`;
-      parcelSelect.appendChild(option);
-    });
+      const noneOption = document.createElement("option");
+      noneOption.value = "";
+      noneOption.textContent = "No tracking area (optional)";
+      parcelSelect.appendChild(noneOption);
 
-    // Default to no selection so picking a field is not mandatory
-    parcelSelect.value = "";
+      parcels.forEach(parcel => {
+        const option = document.createElement("option");
+        option.value = parcel.area_id;
+        option.textContent = `${parcel.area_name} — ${parcel.current_crop}`;
+        parcelSelect.appendChild(option);
+      });
+
+      // Default to no selection so picking a field is not mandatory
+      parcelSelect.value = "";
+    }
+
+    // Pull the saved areas from the backend (database.json) and fill the menu.
+    async function loadParcels() {
+      try {
+        const res = await fetch("/areas");
+        const data = await res.json();
+        parcels = data.areas || [];
+      } catch (err) {
+        console.error("Could not load areas from backend:", err);
+        parcels = [];
+      }
+      populateParcelSelect();
+      renderParcelInfo();
+    }
 
     function getActiveParcel() {
       return parcels.find(parcel => parcel.area_id === parcelSelect.value) || null;
@@ -642,10 +642,10 @@
 
       parcelInfo.innerHTML = `
         <p><strong>Area ID:</strong> ${parcel.area_id}</p>
-        <p><strong>Parcel:</strong> ${parcel.name}</p>
-        <p><strong>Crop:</strong> ${parcel.crop}</p>
-        <p><strong>Average NDVI:</strong> ${parcel.ndvi}</p>
-        <p><strong>Average NDWI:</strong> ${parcel.ndwi}</p>
+        <p><strong>Parcel:</strong> ${parcel.area_name}</p>
+        <p><strong>Crop:</strong> ${parcel.current_crop}</p>
+        <p><strong>Average NDVI:</strong> ${parcel.average_ndvi}</p>
+        <p><strong>Average NDWI:</strong> ${parcel.average_ndwi}</p>
       `;
     }
 
@@ -871,7 +871,7 @@
       }
     });
 
-    renderParcelInfo();
+    loadParcels();
   </script>
 </body>
 </html>

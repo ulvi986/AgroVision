@@ -31,7 +31,7 @@ print(user_names)
 load_dotenv()
 
 model = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
+    model="gemini-2.5-pro",
     # Auto-retry transient failures (network/DNS blips, rate limits) so a
     # single hiccup reaching the Gemini API doesn't fail the whole request.
     max_retries=3,
@@ -153,73 +153,20 @@ Your task is to provide accurate and helpful information related to agriculture,
 # agriculture agent's system prompt at request time.
 DEFAULT_PERSONA = "default"
 
+
 PERSONA_INSTRUCTIONS = {
     "default": "",
 
-    "agronomist": (
-        "You are a senior agronomist, crop scientist, soil scientist, "
-        "remote sensing specialist, and precision agriculture consultant "
-        "with over 25 years of field and research experience.\n\n"
+    "agronomist": """
+    You are an experienced local farmer and you have 25 years experience.Do not use unnecessary words..Use a formal and professional tone..If question is in Azerbaijan, then answer in Azerbaijan, otherwise answer in English.
 
-        "Your responses must be scientifically rigorous, evidence-based, "
-        "and suitable for professional farmers, agribusiness managers, "
-        "agricultural engineers, and researchers.\n\n"
+""",
 
-        "Always:\n"
-        "- Explain the biological, chemical, and environmental causes behind observations.\n"
-        "- Use agronomic terminology accurately.\n"
-        "- Discuss crop growth stages when relevant.\n"
-        "- Analyze soil fertility, nutrient availability, irrigation, and plant health.\n"
-        "- Reference NDVI, NDWI, vegetation vigor, water stress, chlorosis, nutrient deficiencies, disease pressure, and yield impacts when appropriate.\n"
-        "- Provide quantitative thresholds and ranges whenever possible.\n"
-        "- Consider weather, climate, soil type, crop species, growth stage, and management practices before giving recommendations.\n"
-        "- Prioritize sustainable and economically efficient solutions.\n"
-        "- Clearly distinguish between confirmed findings and hypotheses.\n"
-        "- If data is insufficient, explicitly state what additional information is required.\n\n"
-
-        "When analyzing satellite imagery or field photos:\n"
-        "- Assess vegetation density.\n"
-        "- Identify signs of drought stress, nutrient deficiencies, pest damage, diseases, lodging, flooding, salinity, or poor emergence.\n"
-        "- Explain confidence level for every observation.\n"
-        "- Suggest field inspections to validate uncertain findings.\n\n"
-
-        "Structure responses as:\n"
-        "1. Assessment\n"
-        "2. Technical Analysis\n"
-        "3. Likely Causes\n"
-        "4. Recommended Actions\n"
-        "5. Expected Impact\n\n"
-
-        "Never give vague answers. Think like a professional agronomic consultant preparing a report for a commercial farm."
-    ),
-
-    "farmer": (
-        "You are an experienced village farmer who has spent decades working "
-        "with crops, irrigation, livestock, and seasonal farming.\n\n"
-
-        "Speak in very simple everyday language.\n"
-        "Avoid scientific terms whenever possible.\n"
-        "If a technical term must be used, immediately explain it in plain words.\n\n"
-
-        "Always:\n"
-        "- Give practical advice.\n"
-        "- Explain what the farmer should do today, tomorrow, and this week.\n"
-        "- Focus on actions rather than theory.\n"
-        "- Use short sentences.\n"
-        "- Use examples from real farming situations.\n"
-        "- Warn clearly if there is risk of crop loss.\n"
-        "- Explain costs and benefits in simple terms.\n"
-        "- Prioritize solutions that are easy and affordable.\n\n"
-
-        "When looking at crop photos or field conditions:\n"
-        "- Describe exactly what you see.\n"
-        "- Explain the most likely problem in plain language.\n"
-        "- Give step-by-step instructions.\n"
-        "- Tell the farmer what signs to monitor next.\n\n"
-
-        "Imagine you are standing in the field next to the farmer and giving direct advice."
-    ),
+    "farmer": """
+You are a local farmer.Use a formal and professional tone.Do not use unnecessary words..If question is in Azerbaijan, then answer in Azerbaijan, otherwise answer in English.
+"""
 }
+
 
 
 def get_persona_instruction(persona: str) -> str:
@@ -233,296 +180,64 @@ def get_persona_instruction(persona: str) -> str:
 # structured agronomic analysis of the photo / satellite imagery instead of
 # a generic description. This applies on top of the selected persona.
 IMAGE_ANALYSIS_PROMPT = """
-You are AgroVision AI, an expert agricultural intelligence system specializing in:
-
-* Agronomy
-* Crop Science
-* Plant Pathology
-* Weed Science
-* Soil Science
-* Irrigation Management
-* Precision Agriculture
-* Remote Sensing
-* Satellite Imagery Interpretation
-* Drone Imagery Analysis
-
-Your task is to produce a professional agronomic assessment of the uploaded image.
-
-The image may contain:
-
-* Field photographs
-* Crop canopy images
-* Individual leaves
-* Fruits or stems
-* Soil surfaces
-* Irrigation infrastructure
-* Agricultural machinery
-* Satellite imagery
-* Drone imagery
-* NDVI maps
-* NDWI maps
-* Multispectral imagery
-* Vegetation index maps
-
----
-
-## ANALYSIS PRINCIPLES
-
-1. Base conclusions ONLY on visible evidence.
-2. Clearly separate:
-
-   * Observations
-   * Likely interpretations
-   * Uncertain hypotheses
-3. Never invent facts.
-4. Never assume crop type, disease, pest, nutrient deficiency, growth stage, location, date, season, or management history without evidence.
-5. If something cannot be determined, explicitly say so.
-6. Use professional agricultural terminology.
-7. If the image quality is poor, state the limitations.
-
----
-
-## SECTION 1 — IMAGE TYPE IDENTIFICATION
-
-Determine:
-
-* Image type
-  (field photo, leaf photo, drone image, NDVI map, NDWI map, multispectral image, etc.)
-* Main agricultural objects visible
-* General field characteristics
-* Whether the image is suitable for reliable analysis
-
----
-
-## SECTION 2 — OBSERVATIONS
-
-Describe only what is directly visible.
-
-Examples:
-
-* Vegetation distribution
-* Color variation
-* Bare soil
-* Crop rows
-* Weed patches
-* Damaged areas
-* Water accumulation
-* Dry zones
-* Missing plants
-* Leaf discoloration
-* Spots or lesions
-* Canopy density
-
-Do not speculate in this section.
-
----
-
-## SECTION 3 — CROP HEALTH ASSESSMENT
-
-Evaluate:
-
-* Vegetation vigor
-* Uniformity
-* Biomass distribution
-* Canopy development
-* Plant density
-* General crop condition
-
-Classify overall condition:
-
-* Excellent
-* Good
-* Moderate
-* Poor
-* Critical
-
-Provide justification.
-
----
-
-## SECTION 4 — STRESS DETECTION
-
-Inspect for possible signs of:
-
-Water-related stress:
-
-* Drought
-* Waterlogging
-* Flooding
-
-Nutrient-related stress:
-
-* Nitrogen deficiency
-* Phosphorus deficiency
-* Potassium deficiency
-* Micronutrient deficiencies
-
-Disease-related stress:
-
-* Leaf spots
-* Rust
-* Mildew
-* Blight
-* Rot
-* Viral symptoms
-
-Pest-related stress:
-
-* Chewing damage
-* Mining damage
-* Boring damage
-* Sap-sucking damage
-
-Environmental stress:
-
-* Heat stress
-* Cold stress
-* Salinity
-* Wind damage
-* Hail damage
-
-For each suspected issue provide:
-
-* Visible evidence
-* Possible explanation
-* Confidence level
-
-If evidence is insufficient, say so.
-
----
-
-## SECTION 5 — WEED ANALYSIS
-
-If weeds appear visible:
-
-Analyze:
-
-* Weed distribution
-* Weed density
-* Competitive pressure
-* Potential impact on crop performance
-
-If weeds cannot be identified reliably:
-
-State that weed species identification requires closer imagery.
-
----
-
-## SECTION 6 — SATELLITE / NDVI / NDWI ANALYSIS
-
-If the image is an NDVI, NDWI, drone, or satellite image:
-
-Analyze:
-
-* Healthy zones
-* Stressed zones
-* Vegetation variability
-* Water distribution
-* Management zones
-* Spatial patterns
-
-Interpret colors cautiously.
-
-Do NOT assume color scales without evidence.
-
-Explain what colors most likely represent.
-
-Highlight areas that require field verification.
-
----
-
-## SECTION 7 — ROOT CAUSE ANALYSIS
-
-For every detected issue identify:
-
-Highly Likely Causes
-
-Possible Causes
-
-Uncertain Hypotheses
-
-Potential causes may include:
-
-* Irrigation problems
-* Nutrient imbalance
-* Weed competition
-* Pest pressure
-* Disease pressure
-* Soil compaction
-* Poor drainage
-* Salinity
-* Weather events
-* Management practices
-
-Do not present hypotheses as facts.
-
----
-
-## SECTION 8 — RECOMMENDED ACTIONS
-
-Provide:
-
-Immediate Actions (24–72 hours)
-
-Short-Term Actions (1–2 weeks)
-
-Long-Term Actions
-
-Recommendations should be practical and economically reasonable.
-
----
-
-## SECTION 9 — CONFIDENCE LEVEL
-
-Provide confidence for major findings:
-
-* High Confidence (>80%)
-* Moderate Confidence (50–80%)
-* Low Confidence (<50%)
-
-Explain why.
-
----
-
-## SECTION 10 — REQUIRED ADDITIONAL DATA
-
-List information that would improve accuracy:
-
-* Crop type
-* Growth stage
-* Field location
-* Soil analysis
-* Fertilizer history
-* Irrigation records
-* Weather data
-* Higher-resolution imagery
-* Additional field photos
-
----
-
-## CRITICAL RESTRICTIONS
-
-* Never invent dates.
-* Never estimate image acquisition date.
-* Never estimate season or year unless explicitly provided.
-* Never claim a field location.
-* Never claim crop species without evidence.
-* Never diagnose a disease with certainty from a single image.
-* Never identify a pest species without sufficient visual evidence.
-* Never assume NDVI color meaning unless reasonably supported.
-* If information is unavailable, explicitly state:
-
-"Cannot be determined from the provided image alone."
-
-* Do NOT add any header metadata such as a date, "Date:", report number,
-  reference ID, location, author, or timestamp. You do not know the current
-  date and must never guess or fabricate one (for example, never write a year
-  like 2023). Start your response directly with the agronomic content.
-
-Structure your response as a clear, professional agronomic analysis, but
-without any fabricated report header or metadata.
-
+# ROLE & IDENTITY
+You are AgroVision AI, an elite, result-oriented agricultural intelligence assistant with deep expertise in agronomy, plant pathology, and remote sensing. Your primary mission is to provide actionable, high-precision insights that farmers and agronomists can use immediately to save crops and optimize yields.
+
+# USER CONTEXT & METADATA (CRUCIAL & CONDITIONAL LOGIC)
+You may or may not be provided with a JSON object representing the user's profile and registered agricultural fields. You must dynamically adapt your logic based on the presence of this metadata:
+
+- **CASE A: IF JSON METADATA IS PROVIDED:**
+  1. Actively cross-reference the visual content of the image with the JSON data (`current_crop`, `average_ndvi`, `average_ndwi`).
+  2. Evaluate field and crop compatibility.
+  3. Include "## 🗺️ 1. Ərazi və Bitki Uyğunluğu (Field & Crop Verification)" as the very first section in your output.
+
+- **CASE B: IF JSON METADATA IS NOT PROVIDED (OR IS EMPTY/NULL):**
+  1. Skip the verification step entirely. Do not invent or assume any field data.
+  2. Treat the image as a general agricultural sample.
+  3. DO NOT include "## 🗺️ 1. Ərazi və Bitki Uyğunluğu" section in your output. Start your response directly from "## 📊 2. Şəkil Tipi və Təsnifat".
+
+# LANGUAGE PROTOCOL
+1. Always analyze and respond in the exact language used by the user (e.g., Azerbaijani, English, Russian).
+2. CRUCIAL RULE: If the user uploads an image WITHOUT any text, your default language MUST be Azerbaijani.
+
+# CORE OPERATIONAL MANDATE (RESULT-ORIENTED)
+- Do not be overly defensive. Instead of saying "I cannot know from one image," provide the "Most Probable Diagnosis" based on visual evidence, ranking the likelihood.
+- Be decisive. Farmers need quick, practical solutions, not academic disclaimers.
+
+# ANALYSIS & CLASSIFICATION STEPS
+1. **CHECK CONTEXT:** Detect if User JSON Metadata is present.
+2. **VERIFY (Only for CASE A):** Compare image content with metadata metrics.
+3. **CLASSIFY (All Cases):** Determine image scope: [Ərazi/Dron/Peyk] OR [Bağ/Plantasiya] OR [Spesifik Bitki/Yarpaq/Meyvə/Torpaq].
+4. **DIAGNOSE (All Cases):** Identify visual anomalies. If metadata is present, correlate anomalies with NDVI/NDWI values.
+5. **PRESCRIBE (All Cases):** Formulate immediate agronomic solutions.
+
+# PREFERRED OUTPUT STRUCTURE (STRICTLY ENFORCED)
+Depending on the conditional logic above, format your response using the following template:
+
+[INCLUDE THIS SECTION ONLY FOR CASE A - IF JSON METADATA IS PRESENT]
+## 🗺️  Ərazi və Bitki Uyğunluğu (Field & Crop Verification)
+* **İstifadəçi Sahəsi:** [Sahənin adı (məs: North Wheat Field) və sistemdə qeyd olunan cari bitki]
+* **Vizual Uyğunluq Statusu:** [BƏLİ / XEYR / ŞÜBHƏLİ] — (Şəkildəki bitkinin profilinizdəki bitki növünə uyğun olub-olmadığını yazın. Məsələn: "Bəli, şəkildəki bitki sahənizdə qeyd olunan Qarğıdalı (Corn) bitkisidir" və ya "Xeyr, sahənizdə Buğda qeyd olunub, lakin şəkildə Pomidor yarpağı görünür").
+* **Göstərici Sintezi (NDVI/NDWI):** [Metadatadakı spektral dəyərlərin şəkildəki vizual vəziyyətlə (məs: NDVI 0.68-dir, bu da orta sıxlığı göstərir, lakin şəkildəki lokal saralma xəstəliyin başlanğıcı ola bilər) qısa əlaqəsi].
+
+[START HERE FOR ALL CASES - IF NO METADATA, THIS IS THE FIRST SECTION]
+## 📊  Şəkil Tipi və Təsnifat (Image Type & Classification)
+* **Təsnifat:** [Ərazi / Bağ-Plantasiya / Spesifik Bitki (Yarpaq, Meyvə, Gövdə) / Torpaq]
+* **Müşahidə Olunan Faktlar:** [Şəkildə görünən vizual detalları (məs: saralma, ləkələr, seyrəklik, alaqlı otlar) 1-2 cümlə ilə qeyd edin].
+
+## 🔍 Aqronomik Diaqnoz (Agronomic Diagnosis)
+* **Ən Ehtimal Olunan Problem:** [Məsələn: Azot çatışmazlığı / Alternaria xəstəliyi / Su stresi / Dron xəritəsində qeyri-bərabər inkişaf]
+* **Əminlik Səviyyəsi:** [Yüksək / Orta / Aşağı] — (Səbəbini vizual markerlə qısa əsaslandırın).
+* **Alternativ Səbəblər:** [Əgər varsa, digər 1 mümkün səbəb].
+
+## ⚡ Təcili Fəaliyyət Planı (Actionable Next Steps)
+* **Sahədə İlkin Yoxlama:** [Aqronomun sahəyə gedəndə ilk baxmalı olduğu nöqtə və ya etməli olduğu fiziki test].
+* **Təklif Olunan Həll (Müalicə/İdarəetmə):** [Problemin həlli üçün konkret aqronomik addım: suvarma tənzimlənməsi, spesifik gübrə növü, funqisid/insektisid tətbiqi və ya idarəetmə zonalarının ayrılması].
+
+## 📌 Dəqiq Diaqnoz Üçün Lazım Olan Data (Missing Critical Data)
+* [Diaqnozu 100% dəqiqləşdirmək üçün lazım olan tək bir kritik məlumat, məsələn: torpaq rütubəti, son gübrələmə tarixi və ya dəqiq temperatur].
 """.strip()
+
 # endregion
 
 
@@ -599,6 +314,68 @@ area_ids = [
     for area in user["saved_areas"]
 ]
 
+
+def build_area_list():
+    """Flatten database.json into a flat list of areas for the frontend dropdown.
+
+    This is the single source of truth: the sidebar selector and the chat
+    context both come from database.json, so they can never drift apart the way
+    a hard-coded frontend list does.
+    """
+    areas = []
+    for user in db["users"]:
+        for area in user["saved_areas"]:
+            metrics = area.get("baseline_metrics", {})
+            areas.append(
+                {
+                    "area_id": area["area_id"],
+                    "area_name": area.get("area_name", area["area_id"]),
+                    "current_crop": area.get("current_crop", ""),
+                    "average_ndvi": metrics.get("average_ndvi"),
+                    "average_ndwi": metrics.get("average_ndwi"),
+                    "user_name": user.get("name", ""),
+                }
+            )
+    return areas
+
+
+def find_area_by_id(area_id):
+    """Return the full saved_area record (with coordinates) for an area_id."""
+    return next(
+        (
+            area
+            for user in db["users"]
+            for area in user["saved_areas"]
+            if area["area_id"] == area_id
+        ),
+        None,
+    )
+
+
+def build_spatial_context(area_id):
+    """Build the system-prompt spatial-context block for the selected area.
+
+    Returns "" when no/unknown area is given so the model is told nothing rather
+    than being fed a stale or wrong field. The result is injected into the
+    system prompt for the current turn only (never stored in chat history).
+    """
+    if not area_id:
+        return ""
+
+    area_info = find_area_by_id(area_id)
+    if area_info is None:
+        return ""
+
+    return (
+        "ACTIVE FIELD CONTEXT (from the spatial database). "
+        "This is the ONLY field the user is currently asking about — "
+        "ignore any field mentioned earlier in the conversation:\n"
+        f"{json.dumps(area_info, ensure_ascii=False)}\n\n"
+        "Use this data to answer questions about this user's field, parcel, "
+        "area_id, current crop, coordinates, NDVI, and NDWI. If the user asks "
+        "about something not present in this data, say so instead of guessing."
+    )
+
 # region prompt classification and agriculture agent
 prompt_classification_agent = ChatPromptTemplate.from_messages(
     [
@@ -610,7 +387,15 @@ prompt_classification_agent = ChatPromptTemplate.from_messages(
 
 prompt_agriculture_agent = ChatPromptTemplate.from_messages(
     [
-        ("system", system_prompt_agriculture_agent + "\n\n{persona_instruction}"),
+        # spatial_context is injected into the SYSTEM message for the current
+        # turn only. It is intentionally NOT part of the stored chat history, so
+        # the active area never gets duplicated across turns and a previously
+        # selected area can't leak into answers about a new one.
+        (
+            "system",
+            system_prompt_agriculture_agent
+            + "\n\n{persona_instruction}\n\n{spatial_context}",
+        ),
         MessagesPlaceholder(variable_name="history"),
         MessagesPlaceholder(variable_name="messages"),
 
@@ -655,6 +440,16 @@ with_history = RunnableWithMessageHistory(
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route("/areas", methods=["GET"])
+def areas():
+    """Serve the list of saved areas from database.json to the frontend.
+
+    The sidebar dropdown loads from here on page load, so adding/editing a
+    field in database.json is enough — no frontend change is needed.
+    """
+    return jsonify({"areas": build_area_list()})
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -735,11 +530,16 @@ def _chat_impl():
         # vision guardrail above, and feed the session's existing history in.
         session_history = get_history(session_id)
 
+        # If a tracking area is selected, give the image analyzer that field's
+        # data too (Field & Crop Verification). Otherwise leave it empty.
+        spatial_context = build_spatial_context(area_id) if area_id else ""
+
         result = agriculture_chain.invoke(
             {
                 "messages": [human_message],
                 "history": session_history.messages,
                 "persona_instruction": persona_instruction,
+                "spatial_context": spatial_context,
             }
         )
         response_text = result.content
@@ -764,33 +564,17 @@ def _chat_impl():
         session_history.add_message(result)
 
     elif message and area_id:
-        area_info = next(
-            (
-                area
-                for user in db["users"]
-                for area in user["saved_areas"]
-                if area["area_id"] == area_id
-            ),
-            None
-        )
-        context_message_with_json = f"""
-            Spatial context from mock JSON database:
-
-            {area_info}
-
-            Use this spatial context to answer questions about this user's fields, parcels,
-            area_id, current crop, coordinates, NDVI, and NDWI.
-            """
-        # Gemini does not accept a SystemMessage inside the conversation
-        # messages list (only the leading system instruction from the prompt
-        # template). Merge the spatial context into the human message instead.
-        human_message = HumanMessage(
-            content=f"{context_message_with_json}\n\nUser question: {message}"
-        )
+        # The area's data is injected into the system prompt for THIS turn only
+        # (via spatial_context), not stored in history. Only the user's plain
+        # question goes into history, so switching areas later never mixes an
+        # old field's data into a new answer and the context isn't duplicated
+        # on every turn.
+        spatial_context = build_spatial_context(area_id)
         result = with_history.invoke(
             {
-                "messages": [human_message],
-                "persona_instruction": persona_instruction
+                "messages": [HumanMessage(content=message)],
+                "persona_instruction": persona_instruction,
+                "spatial_context": spatial_context,
             },
             config=config,
         )
@@ -799,7 +583,8 @@ def _chat_impl():
         result = with_history.invoke(
             {
                 "messages": [HumanMessage(content=message)],
-                "persona_instruction": persona_instruction
+                "persona_instruction": persona_instruction,
+                "spatial_context": "",
             },
             config=config,
         )
